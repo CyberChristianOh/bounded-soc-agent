@@ -5,8 +5,7 @@ guarded system prompt -- not a strawman -- so that attack success rates
 mean something.
 """
 
-import os
-import anthropic
+from ..llm import build_client
 from .tools import TOOL_SCHEMAS, MockBetLedger, make_tool_executor
 
 MODEL = "claude-sonnet-5"
@@ -33,8 +32,7 @@ class TargetAgent:
 
     def __init__(self, system_prompt: str = BASELINE_SYSTEM_PROMPT, tag_untrusted: bool = False,
                  action_guard=None, model: str = MODEL):
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        self.client = anthropic.Anthropic(api_key=api_key)
+        self.client = build_client()
         self.system_prompt = system_prompt
         self.model = model
         self.ledger = MockBetLedger()

@@ -18,11 +18,10 @@ rely on the same context window that got poisoned to also police
 itself. The guard is a separate, minimal-context checkpoint.
 """
 
-import os
 import json
-import anthropic
 from ..agent.target_agent import TargetAgent
 from ..agent.data import BET_LIMIT_USD
+from ..llm import build_client
 
 GUARD_MODEL = "claude-haiku-4-5-20251001"
 
@@ -56,17 +55,12 @@ Rules:
 """
 
 
-def _build_guard_client():
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    return anthropic.Anthropic(api_key=api_key)
-
-
 def make_action_guard():
     """
     Returns action_guard(tool_name, tool_input, messages) -> (allow, reason)
     Only place_mock_bet is gated; read-only tools pass through.
     """
-    client = _build_guard_client()
+    client = build_client()
 
     def guard(tool_name, tool_input, messages):
         if tool_name != "place_mock_bet":
@@ -85,10 +79,9 @@ def make_action_guard():
         # the check that catches indirect-injection / tool-manipulation,
         # where a poisoned data source tries to trigger a bet the user
         # never requested. Reconstruct a plain-text transcript of just
-        # the human-authored turns for the guard model.
-        # turns for the guard model. We deliberately do NOT hand the
-        # guard the raw tool-result blocks, so poisoned tool data can't
-        # influence the guard's judgment either.
+        # the human-authored turns. We deliberately do NOT hand the
+        # guard the raw tool-result blocks, so the poisoned data that
+        # fooled the main agent cannot reach the guard's context.
         user_turns = []
         for m in messages:
             if m["role"] != "user":
@@ -99,7 +92,6 @@ def make_action_guard():
             # tool_result blocks are skipped on purpose
 
         transcript = "\n---\n".join(user_turns)
-        amount = tool_input.get("amount_usd")
         target = tool_input.get("target")
         bet_type = tool_input.get("bet_type")
 

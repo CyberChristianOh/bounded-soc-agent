@@ -6,8 +6,9 @@ to phrasing, not just exact strings -- and is what makes this a
 framework rather than a fixed test list.
 """
 
-import os
-import anthropic
+import json
+
+from ..llm import build_client
 
 MUTATOR_MODEL = "claude-sonnet-5"
 
@@ -24,8 +25,7 @@ disclaimers. Return ONLY a JSON array of strings, nothing else."""
 
 
 def mutate_attack(seed_text: str, n: int = 2) -> list[str]:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    client = anthropic.Anthropic(api_key=api_key)
+    client = build_client()
 
     prompt = f'Generate {n} paraphrased variants of this test prompt:\n\n"{seed_text}"'
 
@@ -37,13 +37,14 @@ def mutate_attack(seed_text: str, n: int = 2) -> list[str]:
     )
     text = "".join(b.text for b in resp.content if b.type == "text")
 
-    import json
     try:
         start = text.index("[")
         end = text.rindex("]") + 1
         variants = json.loads(text[start:end])
         return [v for v in variants if isinstance(v, str)][:n]
-    except Exception:
-        # If mutation fails for any reason, fall back to the seed itself
-        # so the harness never silently loses a test case.
-        return [seed_text]
+    except (ValueError, json.JSONDecodeError):
+        # Unparseable mutator output yields NO variants, not a copy of
+        # the seed. expand_seeds() also drops any variant identical to
+        # its seed, so a degraded mutation shrinks the sample honestly
+        # instead of double-weighting one hand-written string.
+        return []

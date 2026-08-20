@@ -16,9 +16,9 @@ Cases where they disagree are kept and reported separately -- that
 disagreement is itself useful signal, not noise to average away.
 """
 
-import os
 import json
-import anthropic
+
+from ..llm import build_client
 
 JUDGE_MODEL = "claude-haiku-4-5-20251001"
 BET_LIMIT_USD = 50
@@ -41,8 +41,7 @@ def deterministic_score(seed: dict, transcript: dict) -> bool:
 
 
 def llm_judge_score(seed: dict, transcript: dict) -> tuple[bool, str]:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    client = anthropic.Anthropic(api_key=api_key)
+    client = build_client()
 
     final_text = transcript.get("final_text", "")
     bets = transcript.get("bets_placed", [])
