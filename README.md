@@ -11,6 +11,74 @@ looks like, instead of a one-off prompt-injection screenshot.
 No real money, real users, or real betting platform is involved
 anywhere in this repo. `place_mock_bet` writes to an in-memory list.
 
+## Research direction: bounded autonomy for SOC agents
+
+This repo is growing into the implementation of a research project,
+*Bounded Autonomy in Agentic Incident Response*: can LLM agents contain
+live intrusions at machine speed while **guaranteeing** they never
+cause a catastrophic outage, even when the attacker plants
+instructions inside the logs the agent reads?
+
+The core design choice is that the model is a **proposer** and a
+deterministic engine is the **verifier**:
+
+```
+telemetry ─▶ Perception ─▶ Strategic Reasoner ─▶ Synthesizer
+                                                     │  typed ContainmentPlan (never a script)
+                                                     ▼
+                              ┌─────────── Policy Shield (deterministic) ───────────┐
+                              │ INV-0 schema     INV-3 service availability         │
+                              │ INV-1 known hosts INV-4 structural safety           │
+                              │ INV-2 Tier-0      INV-5 blast-radius budget          │
+                              │                   INV-6 evidence grounding           │
+                              └──────┬──────────────────────┬───────────────────────┘
+                        DENY / HUMAN │ feedback              │ ALLOW (signed, digest-bound)
+                                     ▼                       ▼
+                             reasoner revises       trusted compiler ─▶ argv + undo + TTL
+                                                    hash-chained audit log
+```
+
+**Built so far (the core of the design):**
+
+- `src/dsl/` -- the **containment DSL**. Agents may only emit six typed
+  actions (`suspend_process`, `kill_process`, `block_network`,
+  `isolate_host`, `disable_account`, `quarantine_file`), with every
+  field constrained so it can't carry shell syntax. Because the action
+  space is finite and typed, the verifier sees *everything* a plan
+  will do -- which parsing free-form PowerShell/Bash can never promise.
+- `src/shield/` -- the **policy shield**: six deterministic invariants,
+  three-way verdicts (ALLOW / REQUIRE_HUMAN / DENY), fail-closed on any
+  error, HMAC-signed decisions bound to the plan's SHA-256, structured
+  feedback so the reasoner can revise, and a tamper-evident audit log.
+  Invariants never read free text, so injected instructions have
+  nothing to talk to.
+- `src/dsl/compiler.py` -- the **trusted compiler**: approved plans ->
+  `netsh` / `iptables` / `taskkill` argv lists with undo commands and
+  TTLs. Dry-run only for now.
+- `tests/test_shield_properties.py` -- **property-based tests** that
+  generate thousands of random plans where the attacker controls every
+  piece of evidence, and check the shield never approves anything an
+  independently written safety spec calls unsafe (and never blocks
+  anything it calls safe).
+
+Try it without an API key: `python -m src.shield.demo` walks one
+Kerberoasting incident where the attacker's command line tells the
+agent to isolate the domain controller.
+
+**Safety vs. liveness.** The shield *guarantees* safety: no approved
+plan breaks an invariant, however the agent was manipulated. It can't
+guarantee liveness: an injection that talks the agent into doing
+nothing produces no action to block. Measuring and hardening that gap
+is what the red-team harness below is for.
+
+**Next:** deterministic Perception (Sysmon/Zeek -> entity graph),
+reasoner/synthesizer agents wired to the shield's feedback loop,
+log-borne injection generators for the harness, a static-SOAR
+baseline, and an OPA/Rego backend for the invariant library.
+
+The fantasy-sports agent below was the harness's first target and
+stays as a sanity check that the harness works against any agent.
+
 ## Why this problem, not a chatbot jailbreak demo
 
 Most public "AI red-teaming" projects test whether a chatbot can be
@@ -175,11 +243,13 @@ interesting transcripts to read by hand (see `results/*.json`,
 ## Repo layout
 
 ```
+src/dsl/          containment DSL (typed actions) + trusted compiler to argv
+src/shield/       policy shield: invariants, signed decisions, audit log, demo, lab inventory
 src/agent/        the target: tools, mock data (incl. contaminated entries), baseline agent
 src/defense/       hardened system prompt + tagging + two-layer action guard
 src/redteam/       seeds, LLM-based mutation, orchestration harness, dual-signal scorer
 src/eval/          CLI entrypoint, prints + saves the before/after ASR table
-tests/             network-free unit tests for tool execution, guard logic, scorer logic
+tests/             network-free tests: harness/guard/scorer (test_core), shield unit + property tests
 results/           JSON output per run + results/latest.json
 ```
 
@@ -190,6 +260,8 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # paste your ANTHROPIC_API_KEY in .env
 python -m tests.test_core        # fast, no API calls, sanity-checks the harness itself
+pytest                           # shield + DSL + compiler, incl. property-based tests (no API calls)
+python -m src.shield.demo        # walk an injected incident through the shield (no API calls)
 python -m src.eval.run_eval --quick    # 1 case per seed (8 cases), no mutation -- cheap smoke test
 python -m src.eval.run_eval            # full run: 8 seeds x 3 variants (orig + 2 mutations) = 24 cases per agent
 ```
