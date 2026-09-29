@@ -1,19 +1,14 @@
-# Red-Teaming an Agentic Fantasy-Sports / Betting Assistant
+# bounded-soc-agent
 
-An automated red-teaming framework for AI agents that have tool access
-and can take real-world actions, applied to a concrete, memorable
-target: a fantasy-sports assistant that can place mock bets on a
-user's behalf. It attacks the agent, quantifies how often the attacks
-work, patches the agent, and re-measures -- the attack → measure →
-patch → re-attack loop that production AI security work actually
-looks like, instead of a one-off prompt-injection screenshot.
+Bounded autonomy for agentic incident response: SOC agents that can
+contain intrusions at machine speed, where every action the model
+proposes must pass a deterministic policy shield before it runs -- and
+an automated red-team harness that measures how well that holds up
+against prompt injection hidden in the logs the agent reads.
 
-No real money, real users, or real betting platform is involved
-anywhere in this repo. `place_mock_bet` writes to an in-memory list.
+## Research direction
 
-## Research direction: bounded autonomy for SOC agents
-
-This repo is growing into the implementation of a research project,
+This repo is the implementation of a research project,
 *Bounded Autonomy in Agentic Incident Response*: can LLM agents contain
 live intrusions at machine speed while **guaranteeing** they never
 cause a catastrophic outage, even when the attacker plants
@@ -78,6 +73,20 @@ baseline, and an OPA/Rego backend for the invariant library.
 
 The fantasy-sports agent below was the harness's first target and
 stays as a sanity check that the harness works against any agent.
+
+## The red-team harness (first target: a betting assistant)
+
+An automated red-teaming framework for AI agents that have tool access
+and can take real-world actions, applied to a concrete, memorable
+target: a fantasy-sports assistant that can place mock bets on a
+user's behalf. It attacks the agent, quantifies how often the attacks
+work, patches the agent, and re-measures -- the attack → measure →
+patch → re-attack loop that production AI security work actually
+looks like, instead of a one-off prompt-injection screenshot.
+
+No real money, real users, or real betting platform is involved
+anywhere in this repo. `place_mock_bet` writes to an in-memory list.
+
 
 ## Why this problem, not a chatbot jailbreak demo
 
