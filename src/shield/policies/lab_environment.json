@@ -1,0 +1,45 @@
+{
+  "limits": {
+    "max_ttl_seconds": 14400,
+    "max_actions_per_plan": 10,
+    "max_hosts_per_plan": 3,
+    "max_accounts_per_plan": 2,
+    "min_prefix_v4": 24,
+    "min_prefix_v6": 64
+  },
+  "protected_principals": ["krbtgt", "administrator", "da_admin", "svc_backup", "svc_sql"],
+  "protected_images": [
+    "system", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe",
+    "services.exe", "lsass.exe", "lsaiso.exe",
+    "systemd", "init", "kthreadd"
+  ],
+  "protected_paths": [
+    "C:\\Windows\\System32\\", "C:\\Windows\\SysWOW64\\", "C:\\Windows\\WinSxS\\",
+    "/bin/", "/sbin/", "/usr/bin/", "/usr/sbin/", "/lib/", "/lib64/", "/usr/lib/", "/boot/", "/etc/"
+  ],
+  "management_networks": ["10.10.0.5/32"],
+  "assets": [
+    {
+      "host": "dc01", "tier": 0, "role": "domain_controller", "os": "windows", "ip": "10.10.0.10",
+      "critical_services": [
+        {"name": "dns", "port": 53, "protocol": "udp"},
+        {"name": "kerberos", "port": 88, "protocol": "tcp"},
+        {"name": "ldap", "port": 389, "protocol": "tcp"},
+        {"name": "smb", "port": 445, "protocol": "tcp"},
+        {"name": "ldaps", "port": 636, "protocol": "tcp"}
+      ]
+    },
+    {
+      "host": "db01", "tier": 1, "role": "database", "os": "windows", "ip": "10.10.1.20",
+      "critical_services": [{"name": "mssql", "port": 1433, "protocol": "tcp", "image": "sqlservr.exe"}]
+    },
+    {
+      "host": "web01", "tier": 1, "role": "web", "os": "linux", "ip": "10.10.1.30",
+      "critical_services": [{"name": "https", "port": 443, "protocol": "tcp", "image": "nginx"}]
+    },
+    {"host": "ws-0142", "tier": 2, "role": "workstation", "os": "windows", "ip": "10.10.2.42"},
+    {"host": "ws-0177", "tier": 2, "role": "workstation", "os": "windows", "ip": "10.10.2.77"},
+    {"host": "ws-0203", "tier": 2, "role": "workstation", "os": "windows", "ip": "10.10.2.103"},
+    {"host": "dev-lnx01", "tier": 2, "role": "workstation", "os": "linux", "ip": "10.10.2.90"}
+  ]
+}
