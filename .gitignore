@@ -4,6 +4,5 @@ __pycache__/
 .DS_Store
 venv/
 .venv/
-results/*.json
 .pytest_cache/
 .hypothesis/

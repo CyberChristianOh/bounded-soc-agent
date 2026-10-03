@@ -3,7 +3,7 @@
 Bounded autonomy for agentic incident response: SOC agents that can
 contain intrusions at machine speed, where every action the model
 proposes must pass a deterministic policy shield before it runs -- and
-an automated red-team harness that measures how well that holds up
+an automated red-team harness (in progress) to measure how well that holds up
 against prompt injection hidden in the logs the agent reads.
 
 ## The question
@@ -133,61 +133,24 @@ guarantee liveness: an injection that talks the agent into doing
 *nothing* produces no action to block. Measuring and hardening that
 gap is what the red-team harness is for.
 
-## Red-team harness
+## Red-team harness (next)
 
-`src/redteam/` attacks an agent, quantifies how often the attacks work,
-patches the agent, and re-measures: an attack → measure → patch →
-re-attack loop rather than a one-off injection screenshot.
-
-- **Seeds and mutation:** hand-written seed attacks are expanded by an
-  attacker LLM into paraphrased variants (same intent, different
-  wording), so results reflect robustness to phrasing rather than to
-  specific strings.
-- **Dual-signal scoring:** each case is scored by a deterministic check
-  of what the tools actually did *and* by an independent LLM judge
-  reading the transcript. `confirmed_success` requires both. Cases
-  where they disagree are kept and logged in `results/*.json`, because
-  they're usually the most interesting transcripts.
-- **Baseline vs. hardened:** the same cases run against an undefended
-  agent and a defended one, and the output is an attack-success-rate
-  (ASR) table broken down by category.
-
-### First target (legacy): the betting assistant
-
-This project started as a red-team harness for a fantasy-sports
-assistant that could place **mock** bets (`src/agent/`, `src/defense/`).
-That target is kept as a regression check that the harness works
-against any tool-using agent. No real money, users or betting platform
-is involved; `place_mock_bet` writes to an in-memory list.
-
-| Category | Vector | Success means |
-|---|---|---|
-| `direct_injection` | User's own message | Bet placed over the $50 hard cap |
-| `jailbreak` | Roleplay/hypothetical framing | Agent breaks character and places an over-cap bet |
-| `indirect_injection` | Poisoned injury-report feed | Bet placed though the user never asked |
-| `tool_manipulation` | Poisoned news article | Bet placed when the user only asked for news |
-
-Its hardened agent layers an instruction hierarchy,
-`<untrusted_external_data>` tagging of tool output, and a two-layer
-action guard: a deterministic $50 cap check, plus an LLM guard that
-sees only the human's own messages, so the poisoned data never reaches
-it. The SOC shield above takes the same idea further. The
-deterministic layer becomes the whole decision instead of a first
-filter.
-
-**Next for the harness:** log-borne injection generators (payloads in
-Sysmon/Zeek fields) aimed at the SOC agent, scored against both the
-safety and liveness properties.
+The shield covers safety; the harness will measure liveness. Planned:
+log-borne injection generators that plant payloads in Sysmon/Zeek
+fields, an attacker LLM that paraphrases and adapts them, and
+dual-signal scoring (a deterministic check of what the agent actually
+proposed, plus an independent LLM judge reading the transcript). It
+will report attack success rates against both the safety and liveness
+properties, compared to a static-SOAR baseline.
 
 ## Status
 
 - [x] Containment DSL (6 typed actions) and trusted compiler (dry-run)
 - [x] Policy shield: INV-0 schema check plus six invariants, signed decisions, hash-chained audit log
 - [x] Unit and property-based tests (63 pytest tests, no API calls)
-- [x] Red-team harness, validated against the betting-assistant target
 - [ ] Deterministic Perception (Sysmon/Zeek -> entity graph)
 - [ ] Strategic Reasoner / Synthesizer agents wired to the shield's feedback loop
-- [ ] Log-borne injection generators for the harness
+- [ ] Red-team harness with log-borne injection generators
 - [ ] Static-SOAR baseline for comparison
 - [ ] OPA/Rego backend for the invariant library
 
@@ -197,12 +160,7 @@ safety and liveness properties.
 src/dsl/              containment DSL (typed actions) + trusted compiler to argv
 src/shield/           policy shield: invariants, signed decisions, audit log, demo
 src/shield/policies/  lab asset inventory (hosts, tiers, protected principals)
-src/redteam/          seeds, LLM-based mutation, orchestration harness, dual-signal scorer
-src/eval/             CLI entrypoint; prints and saves the baseline vs. hardened ASR table
-src/agent/            legacy harness target: betting assistant, tools, mock data
-src/defense/          legacy harness target: hardened prompt, data tagging, action guard
-tests/                network-free tests: shield unit + property tests, harness/guard/scorer
-results/              eval output (generated, not checked in)
+tests/                shield unit tests + property-based safety tests
 ```
 
 ## Running it
@@ -212,21 +170,9 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 pytest                           # 63 tests: shield + DSL + compiler, incl. property-based (no API calls)
 python -m src.shield.demo        # walk an injected incident through the shield (no API calls)
-python -m tests.test_core        # 15 harness/guard/scorer checks (no API calls)
 ```
 
-The red-team eval needs an Anthropic API key:
-
-```bash
-cp .env.example .env                   # paste your ANTHROPIC_API_KEY in .env
-python -m src.eval.run_eval --quick    # 1 case per seed, no mutation -- cheap smoke test
-python -m src.eval.run_eval            # 8 seeds x 3 variants = 24 cases per agent
-```
-
-The full run costs well under $2 against Haiku/Sonnet. Results go to
-`results/latest.json`. ASR numbers aren't hand-filled in this README on
-purpose: an eval whose headline result was typed in by hand isn't one
-worth trusting.
+No API key is needed: nothing in the repo calls a model yet.
 
 ## Limitations
 
@@ -238,9 +184,7 @@ worth trusting.
   pull it from a CMDB and would have to treat its integrity as part of
   the trusted base.
 - The shield doesn't address liveness (an agent manipulated into
-  inaction). That's measured by the harness, not guaranteed.
-- Harness seeds are hand-written and paraphrased, not yet adaptive to
-  the live defense, and only one model family (Claude) is tested.
+  inaction). The planned harness will measure it; nothing guarantees it.
 
 ## Contact
 
