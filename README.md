@@ -3,8 +3,8 @@
 Bounded autonomy for agentic incident response: SOC agents that can
 contain intrusions at machine speed, where every action the model
 proposes must pass a deterministic policy shield before it runs -- and
-an automated red-team harness (in progress) to measure how well that holds up
-against prompt injection hidden in the logs the agent reads.
+a planned red-team harness to measure how well that holds up against
+prompt injection hidden in the logs the agent reads.
 
 ## The question
 
@@ -131,7 +131,7 @@ signing key. These are the trusted computing base.
 plan breaks an invariant, however the agent was manipulated. It can't
 guarantee liveness: an injection that talks the agent into doing
 *nothing* produces no action to block. Measuring and hardening that
-gap is what the red-team harness is for.
+gap is what the planned red-team harness is for.
 
 ## Red-team harness (next)
 
